@@ -1,0 +1,10 @@
+^C:\USERS\MUSTA\DESKTOP\PROJECTS\GSKIT\CMAKELISTS.TXT
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/musta/Desktop/Projects/gskit -BC:/Users/musta/Desktop/Projects/gskit/build --check-stamp-file C:/Users/musta/Desktop/Projects/gskit/build/CMakeFiles/generate.stamp
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
