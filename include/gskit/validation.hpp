@@ -47,14 +47,14 @@ namespace gskit
 
     struct ValidationOptions
     {
-        bool strict;
-        bool checkFinite;
-        bool checkScale;
-        bool checkRotation;
-        bool checkOpacity;
-        bool checkSH;
-        bool checkBounds;
-        bool checkVertexCount;
+        bool strict = false;
+        bool checkFinite = true;
+        bool checkScale = true;
+        bool checkRotation = true;
+        bool checkOpacity = true;
+        bool checkSH = true;
+        bool checkBounds = true;
+        bool checkVertexCount = true;
     };
 
     struct ValidationSummary
