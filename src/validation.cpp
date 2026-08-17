@@ -117,14 +117,14 @@ gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, 
 
             if (options.checkScale)
             {
-                if (data.scale.x > 10.0f || data.scale.x < -10.0f || data.scale.y > 10.0f || data.scale.y < -10.0f || data.scale.z > 10.0f || data.scale.z < -10.0f)
-                {
-                    result.summary.warningCount++;
-                    result.issues.push_back(ValidationIssue{Severity::WARNING,
-                                                            IssueCode::INVALID_SCALE,
-                                                            "Scale value out of reasonable range (raw > 10 or < -10)",
-                                                            index});
-                }
+                // if (data.scale.x > 10.0f || data.scale.x < -10.0f || data.scale.y > 10.0f || data.scale.y < -10.0f || data.scale.z > 10.0f || data.scale.z < -10.0f)
+                // {
+                //     result.summary.warningCount++;
+                //     result.issues.push_back(ValidationIssue{Severity::WARNING,
+                //                                             IssueCode::INVALID_SCALE,
+                //                                             "Scale value out of reasonable range (raw > 10 or < -10) : (" + std::to_string(data.scale.x) + ", " + std::to_string(data.scale.y) + ", " + std::to_string(data.scale.z) + ")",
+                //                                             index});
+                // }
             }
 
             if (options.checkRotation)
@@ -153,6 +153,52 @@ gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, 
                 }
             }
 
+            if (options.checkScale)
+            {
+                float activated_x = std::exp(data.scale.x);
+                float activated_y = std::exp(data.scale.y);
+                float activated_z = std::exp(data.scale.z);
+                if (activated_x > 1e6 || activated_y > 1e6 || activated_z > 1e6)
+                {
+                    result.summary.warningCount++;
+                    result.issues.push_back(ValidationIssue{Severity::WARNING,
+                                                            IssueCode::INVALID_SCALE,
+                                                            "Activated scale value out of reasonable range (activated :" + std::to_string(activated_x) + ", " + std::to_string(activated_y) + ", " + std::to_string(activated_z) + ")",
+                                                            index});
+                }
+
+                if (activated_x < 1e-8 || activated_y < 1e-8 || activated_z < 1e-8)
+                {
+                    result.summary.warningCount++;
+                    result.issues.push_back(ValidationIssue{Severity::WARNING,
+                                                            IssueCode::INVALID_SCALE,
+                                                            "Activated scale value out of reasonable range (activated :" + std::to_string(activated_x) + ", " + std::to_string(activated_y) + ", " + std::to_string(activated_z) + ")",
+                                                            index});
+                }
+            }
+
+            if (options.checkOpacity)
+            {
+                float activated_opacity = 1.0f / (1.0f + std::exp(-data.opacity));
+                if (std::isfinite(activated_opacity)){
+                    
+                    if (activated_opacity > 1.0f || activated_opacity < 0.0f)
+                    {
+                        result.summary.warningCount++;
+                        result.issues.push_back(ValidationIssue{Severity::WARNING,
+                                                                IssueCode::INVALID_OPACITY,
+                                                                "Activated opacity value out of reasonable range (activated :" + std::to_string(activated_opacity) + ")",
+                                                                index});
+                    }
+                } else {
+                    result.summary.warningCount++;
+                    result.issues.push_back(ValidationIssue{Severity::WARNING,
+                                                            IssueCode::INVALID_OPACITY,
+                                                            "Activated opacity value is not finite (activated :" + std::to_string(activated_opacity) + ")",
+                                                            index});
+                }
+            }
+            
             index++;
 
             if (options.strict && result.summary.errorCount > 0)
@@ -184,5 +230,6 @@ gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, 
             return result;
         }
     }
+
     return result;
 }

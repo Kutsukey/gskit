@@ -42,7 +42,7 @@ namespace gskit
         Severity sev;
         IssueCode issue;
         std::string message;
-        std::optional<size_t> gaussian_index;
+        std::optional<size_t> gaussianIndex;
     };
 
     struct ValidationOptions
