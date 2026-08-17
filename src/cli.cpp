@@ -48,16 +48,65 @@ namespace gskit
             }
         }
 
+        std::string issueCodeToString(IssueCode code)
+        {
+            switch (code)
+            {
+            case IssueCode::FILE_CANNOT_OPEN:
+                return "FILE_CANNOT_OPEN";
+            case IssueCode::INVALID_FILE_FORMAT:
+                return "INVALID_FILE_FORMAT";
+            case IssueCode::MISSING_PROPERTY:
+                return "MISSING_PROPERTY";
+            case IssueCode::NON_FINITE_POSITION:
+                return "NON_FINITE_POSITION";
+            case IssueCode::NON_FINITE_SCALE:
+                return "NON_FINITE_SCALE";
+            case IssueCode::INVALID_SCALE:
+                return "INVALID_SCALE";
+            case IssueCode::NON_FINITE_ROTATION:
+                return "NON_FINITE_ROTATION";
+            case IssueCode::NON_NORMALIZED_QUATERNION:
+                return "NON_NORMALIZED_QUATERNION";
+            case IssueCode::NON_FINITE_OPACITY:
+                return "NON_FINITE_OPACITY";
+            case IssueCode::INVALID_OPACITY:
+                return "INVALID_OPACITY";
+            case IssueCode::NON_FINITE_SH:
+                return "NON_FINITE_SH";
+            case IssueCode::UNEXPECTED_SH_DEGREE:
+                return "UNEXPECTED_SH_DEGREE";
+            case IssueCode::INVALID_BOUNDS:
+                return "INVALID_BOUNDS";
+            case IssueCode::VERTEX_COUNT_MISMATCH:
+                return "VERTEX_COUNT_MISMATCH";
+            default:
+                return "UNKNOWN_ISSUE_CODE";
+            }
+        }
+
+        std::string severityToString(Severity sev)
+        {
+            switch (sev)
+            {
+            case Severity::WARNING:
+                return "WARNING";
+            case Severity::ERROR:
+                return "ERROR";
+            default:
+                return "UNKNOWN_SEVERITY";
+            }
+        }
         void printIssues(const ValidationResult &result)
         {
             for (const auto &issue : result.issues)
             {
-                std::cout << "Severity: " << (issue.sev == Severity::ERROR ? "ERROR" : "WARNING")
-                          << ", Issue: " << static_cast<int>(issue.issue)
+                std::cout << "Severity: " << severityToString(issue.sev)
+                          << ", Issue: " << issueCodeToString(issue.issue)
                           << ", Message: " << issue.message;
-                if (issue.gaussian_index)
+                if (issue.gaussianIndex)
                 {
-                    std::cout << ", Gaussian Index: " << *issue.gaussian_index;
+                    std::cout << ", Gaussian Index: " << *issue.gaussianIndex;
                 }
                 std::cout << '\n';
             }
@@ -89,8 +138,54 @@ namespace gskit
 
         void printUsage()
         {
-            std::cerr << "Usage: gskit validate <file.ply> [--strict]\n";
+            std::cerr << "Usage: gskit <command> <file.ply> [--strict]\n";
+            std::cerr << "Commands:\n";
+            std::cerr << "  validate: Validates the specified PLY file.\n";
+            std::cerr << "  preview: Previews the specified PLY file.\n";
+            std::cerr << "  info: Displays information about the specified PLY file.\n";
         }
+
+        int runInfo(const std::filesystem::path &path, const ValidationOptions &options)
+        {
+            ValidationResult result{ValidateAsset(path, options)};
+            // Process the validation result for info command
+            std::string jsonOutput = "{\n";
+            jsonOutput += "  \"file\": \"" + path.generic_string() + "\",\n";
+            jsonOutput += "  \"gaussianCount\": " + std::to_string(result.summary.gaussianCount) + ",\n";
+            jsonOutput += "  \"shDegree\": " + std::to_string(result.summary.shDegree) + ",\n";
+            jsonOutput += "  \"errorCount\": " + std::to_string(result.summary.errorCount) + ",\n";
+            jsonOutput += "  \"warningCount\": " + std::to_string(result.summary.warningCount) + ",\n";
+            jsonOutput += "  \"issues\": [\n";
+            for (size_t i = 0; i < result.issues.size(); ++i)
+            {
+                if (i > 0)
+                {
+                    jsonOutput += ",\n";
+                }
+                jsonOutput += "    {\n";
+                jsonOutput += " \"issue\": \"" + issueCodeToString(result.issues[i].issue) + "\",\n";
+                jsonOutput += " \"severity\": \"" + severityToString(result.issues[i].sev) + "\",\n";
+                jsonOutput += " \"message\": \"" + result.issues[i].message + "\"";
+                if (result.issues[i].gaussianIndex)
+                {
+                    jsonOutput += ",\n \"gaussianIndex\": " + std::to_string(*result.issues[i].gaussianIndex);
+                }
+                jsonOutput += "\n    }";
+            }
+            jsonOutput += "  ]\n";
+            jsonOutput += "}\n";
+            std::cout << jsonOutput;
+            if (result.summary.errorCount > 0)
+            {
+                return EXIT_ERROR;
+            }
+            if (result.summary.warningCount > 0)
+            {
+                return EXIT_WARNINGS;
+            }
+            return EXIT_OK;
+        }
+
     } // namespace
 
     int runCli(int argc, char const *argv[])
@@ -131,6 +226,28 @@ namespace gskit
         {
             printGaussianPreview(path);
             return EXIT_OK;
+        }
+
+        if (command == "info")
+        {
+            ValidationOptions opts{};
+            if (argc == 4)
+            {
+                std::string flag{argv[3]};
+                if (flag == "--strict")
+                {
+                    opts.strict = true;
+                    return runInfo(path, opts);
+                }
+                else
+                {
+                    std::cerr << "Unknown option: " << flag << '\n';
+                    printUsage();
+                    return EXIT_ERROR;
+                }
+            }
+
+            return runInfo(path, opts);
         }
 
         std::cerr << "Unknown command: " << command << '\n';
