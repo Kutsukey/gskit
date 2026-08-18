@@ -2,6 +2,7 @@
 #include <gskit/ply_reader.hpp>
 #include <algorithm>
 #include <cmath>
+#include "validation.hpp"
 
 gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, const ValidationOptions &options)
 {
@@ -180,8 +181,9 @@ gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, 
             if (options.checkOpacity)
             {
                 float activated_opacity = 1.0f / (1.0f + std::exp(-data.opacity));
-                if (std::isfinite(activated_opacity)){
-                    
+                if (std::isfinite(activated_opacity))
+                {
+
                     if (activated_opacity > 1.0f || activated_opacity < 0.0f)
                     {
                         result.summary.warningCount++;
@@ -190,7 +192,9 @@ gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, 
                                                                 "Activated opacity value out of reasonable range (activated :" + std::to_string(activated_opacity) + ")",
                                                                 index});
                     }
-                } else {
+                }
+                else
+                {
                     result.summary.warningCount++;
                     result.issues.push_back(ValidationIssue{Severity::WARNING,
                                                             IssueCode::INVALID_OPACITY,
@@ -198,7 +202,7 @@ gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, 
                                                             index});
                 }
             }
-            
+
             index++;
 
             if (options.strict && result.summary.errorCount > 0)
@@ -232,4 +236,31 @@ gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, 
     }
 
     return result;
+}
+
+bool gskit::isValidGaussian(const GaussianData &data, const ValidationOptions &options)
+{
+    if (options.checkFinite)
+    {
+        if (!isfinite(data.position.x) || !isfinite(data.position.y) || !isfinite(data.position.z))
+            return false;
+        if (!isfinite(data.scale.x) || !isfinite(data.scale.y) || !isfinite(data.scale.z))
+            return false;
+        if (!isfinite(data.rotation.x) || !isfinite(data.rotation.y) || !isfinite(data.rotation.z))
+            return false;
+        if(!isfinite(data.opacity))
+            return false;
+    }
+
+    if(options.checkRotation)
+    {
+        float magnitude = std::sqrt(data.rotation.x * data.rotation.x +
+                                    data.rotation.y * data.rotation.y +
+                                    data.rotation.z * data.rotation.z +
+                                    data.rotation.w * data.rotation.w);
+        if (std::abs(magnitude - 1.0f) > 0.5f)
+            return false;
+    }
+
+    return true;
 }

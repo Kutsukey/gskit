@@ -72,4 +72,5 @@ namespace gskit
     };
 
     ValidationResult ValidateAsset(const std::filesystem::path &path, const ValidationOptions &options);
+    bool isValidGaussian(const GaussianData &data, const ValidationOptions &options);
 } // namespace gskit

@@ -72,5 +72,7 @@ namespace gskit
         bool readHeader(PLYHeader& header);
         bool readGaussianData(GaussianData& data);
         void buildOffsetMap();
+        std::vector<char> getBuffer() const { return buffer_; }
+        size_t getStride() const { return stride_; }
     };
 }
