@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.15)
 
 project(gskit)
 
-add_executable(gskit src/validation.cpp src/cli.cpp)
+add_executable(gskit src/validation.cpp src/cli.cpp src/ply_reader.cpp src/ply_writer.cpp)
 
 target_include_directories(gskit PRIVATE include)
 
