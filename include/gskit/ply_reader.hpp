@@ -57,6 +57,7 @@ namespace gskit
         Vec3 scale;
         Quat rotation;
         float opacity;
+        std::vector<float> shCoeffs;
     };
 
     class PLYReader
@@ -65,6 +66,7 @@ namespace gskit
         std::ifstream file;
         PLYHeader header_;
         std::unordered_map<std::string, std::pair<size_t, size_t>> offsetMap_;
+        std::vector<std::pair<size_t, size_t>> shOffsets_;
         size_t stride_;
         std::vector<char> buffer_;
         bool mapReady_ = false;

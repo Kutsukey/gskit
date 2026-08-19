@@ -187,13 +187,21 @@ bool gskit::PLYReader::readGaussianData(GaussianData &data)
     readFloat("rot_3", data.rotation.z);
     readFloat("opacity", data.opacity);
 
-    // 4. position, scale, rotation, opacity
+    data.shCoeffs.clear();
+    data.shCoeffs.reserve(shOffsets_.size());
+    for (const auto &offsetPair : shOffsets_)
+    {
+        float coeff;
+        std::memcpy(&coeff, buffer_.data() + offsetPair.first, sizeof(float));
+        data.shCoeffs.push_back(coeff);
+    }
 
     return true;
 }
 
 void gskit::PLYReader::buildOffsetMap()
 {
+    shOffsets_.clear();
     offsetMap_.clear();
     stride_ = 0;
 
@@ -201,6 +209,12 @@ void gskit::PLYReader::buildOffsetMap()
     {
         size_t size = typeSize(property.type);
         offsetMap_[property.name] = {stride_, size};
+
+        if (property.name.rfind("f_dc_") == 0 || property.name.rfind("f_rest_") == 0)
+        {
+            shOffsets_.push_back({stride_, size});
+        }
+
         stride_ += size;
     }
 

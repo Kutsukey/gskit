@@ -203,6 +203,32 @@ gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, 
                 }
             }
 
+            if(options.checkSH){
+                if (data.shCoeffs.size() != shcount)
+                {
+                    result.summary.errorCount++;
+                    result.issues.push_back(ValidationIssue{Severity::ERROR,
+                                                            IssueCode::UNEXPECTED_SH_DEGREE,
+                                                            "Unexpected number of SH coefficients: " + std::to_string(data.shCoeffs.size()),
+                                                            index});
+                }
+                else
+                {
+                    for (const auto &coeff : data.shCoeffs)
+                    {
+                        if (!std::isfinite(coeff))
+                        {
+                            result.summary.warningCount++;
+                            result.issues.push_back(ValidationIssue{Severity::ERROR,
+                                                                    IssueCode::NON_FINITE_SH,
+                                                                    "Non-finite SH coefficient",
+                                                                    index});
+                            break;
+                        }
+                    }
+                }
+            }
+
             index++;
 
             if (options.strict && result.summary.errorCount > 0)
@@ -242,17 +268,17 @@ bool gskit::isValidGaussian(const GaussianData &data, const ValidationOptions &o
 {
     if (options.checkFinite)
     {
-        if (!isfinite(data.position.x) || !isfinite(data.position.y) || !isfinite(data.position.z))
+        if (!std::isfinite(data.position.x) || !std::isfinite(data.position.y) || !std::isfinite(data.position.z))
             return false;
-        if (!isfinite(data.scale.x) || !isfinite(data.scale.y) || !isfinite(data.scale.z))
+        if (!std::isfinite(data.scale.x) || !std::isfinite(data.scale.y) || !std::isfinite(data.scale.z))
             return false;
-        if (!isfinite(data.rotation.x) || !isfinite(data.rotation.y) || !isfinite(data.rotation.z))
+        if (!std::isfinite(data.rotation.x) || !std::isfinite(data.rotation.y) || !std::isfinite(data.rotation.z) || !std::isfinite(data.rotation.w))
             return false;
-        if(!isfinite(data.opacity))
+        if (!std::isfinite(data.opacity))
             return false;
     }
 
-    if(options.checkRotation)
+    if (options.checkRotation)
     {
         float magnitude = std::sqrt(data.rotation.x * data.rotation.x +
                                     data.rotation.y * data.rotation.y +
@@ -260,6 +286,14 @@ bool gskit::isValidGaussian(const GaussianData &data, const ValidationOptions &o
                                     data.rotation.w * data.rotation.w);
         if (std::abs(magnitude - 1.0f) > 0.5f)
             return false;
+    }
+
+    if(options.checkSH){
+        for (const auto &coeff : data.shCoeffs)
+        {
+            if (!std::isfinite(coeff))
+                return false;
+        }
     }
 
     return true;
