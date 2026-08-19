@@ -6,6 +6,7 @@
 
 #include <gskit/ply_reader.hpp>
 #include <gskit/validation.hpp>
+#include <gskit/ply_writer.hpp>
 
 namespace gskit
 {
@@ -136,6 +137,64 @@ namespace gskit
             return EXIT_OK;
         }
 
+        int runSanitize(const std::filesystem::path &path, const std::filesystem::path &outputPath, const ValidationOptions &options)
+        {
+            PLYReader reader{};
+            PLYHeader header{};
+            if (!reader.open(path))
+            {
+                std::cerr << "Failed to open file: " << path << '\n';
+                return EXIT_ERROR;
+            }
+            if (!reader.readHeader(header))
+            {
+                std::cerr << "Failed to read header from file: " << path << '\n';
+                return EXIT_ERROR;
+            }
+
+            std::vector<char> cleanBytes;
+            size_t validCount = 0;
+            GaussianData data{};
+            while (reader.readGaussianData(data))
+            {
+                if (isValidGaussian(data, options))
+                {
+                    const auto &rawBuffer = reader.getBuffer();
+                    cleanBytes.insert(cleanBytes.end(), rawBuffer.begin(), rawBuffer.end());
+                    ++validCount;
+                }
+                else
+                {
+                    std::cerr << "Invalid Gaussian data encountered. Skipping.\n";
+                }
+            }
+            PLYWriter writer{};
+            if (!writer.open(outputPath))
+            {
+                std::cerr << "Failed to open output file: " << outputPath << '\n';
+                return EXIT_ERROR;
+            }
+            if (!writer.writeHeader(header, validCount))
+            {
+                std::cerr << "Failed to write header to output file: " << outputPath << '\n';
+                return EXIT_ERROR;
+            }
+            if (!writer.writeVertex(cleanBytes.data(), cleanBytes.size()))
+            {
+                std::cerr << "Failed to write Gaussian data to output file: " << outputPath << '\n';
+                return EXIT_ERROR;
+            }
+            writer.close();
+
+            std::cout << "Sanitization complete:\n";
+            std::cout << "  Input Gaussians:  " << header.vertexCount << "\n";
+            std::cout << "  Valid (Kept):     " << validCount << "\n";
+            std::cout << "  Removed:          " << (header.vertexCount - validCount) << "\n";
+            std::cout << "Output saved to: " << outputPath << "\n";
+
+            return EXIT_OK;
+        }
+
         void printUsage()
         {
             std::cerr << "Usage: gskit <command> <file.ply> [--strict]\n";
@@ -143,12 +202,13 @@ namespace gskit
             std::cerr << "  validate: Validates the specified PLY file.\n";
             std::cerr << "  preview: Previews the specified PLY file.\n";
             std::cerr << "  info: Displays information about the specified PLY file.\n";
+            std::cerr << "  sanitize: Sanitizes the specified PLY file and saves to a new file.\n";
         }
 
         int runInfo(const std::filesystem::path &path, const ValidationOptions &options)
         {
             ValidationResult result{ValidateAsset(path, options)};
-            // Process the validation result for info command
+
             std::string jsonOutput = "{\n";
             jsonOutput += "  \"file\": \"" + path.generic_string() + "\",\n";
             jsonOutput += "  \"gaussianCount\": " + std::to_string(result.summary.gaussianCount) + ",\n";
@@ -230,14 +290,14 @@ namespace gskit
 
         if (command == "info")
         {
-            ValidationOptions opts{};
+            ValidationOptions options{};
             if (argc == 4)
             {
                 std::string flag{argv[3]};
                 if (flag == "--strict")
                 {
-                    opts.strict = true;
-                    return runInfo(path, opts);
+                    options.strict = true;
+                    return runInfo(path, options);
                 }
                 else
                 {
@@ -247,8 +307,39 @@ namespace gskit
                 }
             }
 
-            return runInfo(path, opts);
+            return runInfo(path, options);
         }
+
+        if (command == "sanitize")
+        {
+            if (argc < 4)
+            {
+                std::cerr << "Sanitize command requires an output file path.\n";
+                printUsage();
+                return EXIT_ERROR;
+            }
+
+            std::filesystem::path outputPath{argv[3]};
+            ValidationOptions options{};
+
+            if (argc == 5)
+            {
+                std::string flag{argv[4]};
+                if (flag == "--strict")
+                {
+                    options.strict = true;
+                }
+                else
+                {
+                    std::cerr << "Unknown option: " << flag << '\n';
+                    printUsage();
+                    return EXIT_ERROR;
+                }
+            }
+
+            return runSanitize(path, outputPath, options);
+        }
+        
 
         std::cerr << "Unknown command: " << command << '\n';
         printUsage();

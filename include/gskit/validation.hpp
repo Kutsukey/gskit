@@ -2,6 +2,7 @@
 #include <optional>
 #include <vector>
 #include <filesystem>
+#include <gskit/ply_reader.hpp>
 
 namespace gskit
 {

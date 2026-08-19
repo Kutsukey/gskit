@@ -1,8 +1,8 @@
 #include <gskit/validation.hpp>
 #include <gskit/ply_reader.hpp>
+#include <gskit/ply_writer.hpp>
 #include <algorithm>
 #include <cmath>
-#include "validation.hpp"
 
 gskit::ValidationResult gskit::ValidateAsset(const std::filesystem::path &path, const ValidationOptions &options)
 {
