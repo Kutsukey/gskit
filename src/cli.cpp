@@ -81,6 +81,14 @@ namespace gskit
                 return "INVALID_BOUNDS";
             case IssueCode::VERTEX_COUNT_MISMATCH:
                 return "VERTEX_COUNT_MISMATCH";
+            case IssueCode::DEAD_GAUSSIAN:
+                return "DEAD_GAUSSIAN";
+            case IssueCode::INVALID_COLOR:
+                return "INVALID_COLOR";
+            case IssueCode::ANISOTROPIC_SCALE:
+                return "ANISOTROPIC_SCALE";
+            case IssueCode::ZERO_QUATERNION:
+                return "ZERO_QUATERNION";
             default:
                 return "UNKNOWN_ISSUE_CODE";
             }
@@ -134,6 +142,10 @@ namespace gskit
 
             std::cout << result.summary.gaussianCount << " Gaussians validated successfully with SH degree "
                       << result.summary.shDegree << ".\n";
+            std::cout << "Bounds: [" << result.summary.bboxMin.x << ", " << result.summary.bboxMin.y << ", " << result.summary.bboxMin.z
+                      << "] to ["
+                      << result.summary.bboxMax.x << ", " << result.summary.bboxMax.y << ", " << result.summary.bboxMax.z
+                      << "]\n";
             return EXIT_OK;
         }
 
@@ -215,6 +227,12 @@ namespace gskit
             jsonOutput += "  \"shDegree\": " + std::to_string(result.summary.shDegree) + ",\n";
             jsonOutput += "  \"errorCount\": " + std::to_string(result.summary.errorCount) + ",\n";
             jsonOutput += "  \"warningCount\": " + std::to_string(result.summary.warningCount) + ",\n";
+            jsonOutput += "  \"ghostCount\": " + std::to_string(result.summary.ghostCount) + ",\n";
+            jsonOutput += "  \"needleCount\": " + std::to_string(result.summary.needleCount) + ",\n";
+            jsonOutput += "  \"bounds\": {\n";
+            jsonOutput += "    \"min\": [" + std::to_string(result.summary.bboxMin.x) + ", " + std::to_string(result.summary.bboxMin.y) + ", " + std::to_string(result.summary.bboxMin.z) + "],\n";
+            jsonOutput += "    \"max\": [" + std::to_string(result.summary.bboxMax.x) + ", " + std::to_string(result.summary.bboxMax.y) + ", " + std::to_string(result.summary.bboxMax.z) + "]\n";
+            jsonOutput += "  },\n";
             jsonOutput += "  \"issues\": [\n";
             for (size_t i = 0; i < result.issues.size(); ++i)
             {
@@ -339,7 +357,6 @@ namespace gskit
 
             return runSanitize(path, outputPath, options);
         }
-        
 
         std::cerr << "Unknown command: " << command << '\n';
         printUsage();

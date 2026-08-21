@@ -18,23 +18,20 @@ namespace gskit
         FILE_CANNOT_OPEN,
         INVALID_FILE_FORMAT,
         MISSING_PROPERTY,
-
         NON_FINITE_POSITION,
-
         NON_FINITE_SCALE,
         INVALID_SCALE,
-
+        ANISOTROPIC_SCALE,
         NON_FINITE_ROTATION,
+        ZERO_QUATERNION,
         NON_NORMALIZED_QUATERNION,
-
         NON_FINITE_OPACITY,
         INVALID_OPACITY,
-
+        DEAD_GAUSSIAN,
         NON_FINITE_SH,
         UNEXPECTED_SH_DEGREE,
-
+        INVALID_COLOR,
         INVALID_BOUNDS,
-
         VERTEX_COUNT_MISMATCH,
     };
 
@@ -64,6 +61,10 @@ namespace gskit
         uint16_t shDegree;
         uint16_t warningCount;
         uint16_t errorCount;
+        size_t ghostCount;
+        size_t needleCount;
+        Vec3 bboxMin{0.0f, 0.0f, 0.0f};
+        Vec3 bboxMax{0.0f, 0.0f, 0.0f};
     };
 
     struct ValidationResult
