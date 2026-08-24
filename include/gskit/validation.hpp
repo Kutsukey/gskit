@@ -53,6 +53,7 @@ namespace gskit
         bool checkSH = true;
         bool checkBounds = true;
         bool checkVertexCount = true;
+        bool dropDeadGaussians = false;
     };
 
     struct ValidationSummary

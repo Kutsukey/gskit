@@ -372,6 +372,13 @@ namespace gskit
             }
         }
 
+        if(options.dropDeadGaussians)
+        {
+            float activated_opacity = 1.0f / (1.0f + std::exp(-data.opacity));
+            if (activated_opacity < 1e-4f)
+                return false;
+        }
+
         return true;
     }
 }
