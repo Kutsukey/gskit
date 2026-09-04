@@ -1,0 +1,15 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "GSKit",
+  "Description": "3D Gaussian Splatting PLY validation and sanitization ingestion firewall.",
+  "Category": "Rendering",
+  "Modules": [
+    {
+      "Name": "GSKitEditor",
+      "Type": "Editor",
+      "LoadingPhase": "Default"
+    }
+  ]
+}
