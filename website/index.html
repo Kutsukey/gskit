@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth bg-[#08090c]">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSKit — 3D Gaussian Splatting Ingestion & Repair Pipeline</title>
+    <meta name="description" content="Ultra-fast C++20 tool and library to inspect, validate, and sanitize 3D Gaussian Splatting (.ply) assets for Unreal Engine 5, Unity, and custom rasterizers. Native Model Context Protocol (MCP) server.">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Space Grotesk"', 'sans-serif'],
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scanline & Grid Effect */
+        .bg-grid-pattern {
+            background-size: 40px 40px;
+            background-image: 
+                linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        }
+        .scanline {
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0, 0, 0, 0.3) 50%, rgba(0, 0, 0, 0.3));
+            background-size: 100% 4px;
+        }
+    </style>
+</head>
+<body class="bg-[#08090c] text-neutral-300 font-sans antialiased selection:bg-emerald-400 selection:text-black min-h-screen relative overflow-x-hidden">
+
+    <!-- Interactive 3D Gaussian Splats Canvas Background -->
+    <canvas id="splatCanvas" class="fixed inset-0 w-full h-full pointer-events-none z-0 opacity-80"></canvas>
+    
+    <!-- Subtle Grid Overlay -->
+    <div class="fixed inset-0 bg-grid-pattern pointer-events-none z-[1] opacity-60"></div>
+
+    <!-- Navigation -->
+    <header class="relative z-20 border-b border-neutral-800/80 backdrop-blur-md bg-[#08090c]/70">
+        <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-8 h-8 rounded border border-neutral-700 bg-neutral-900 flex items-center justify-center font-mono font-bold text-white text-xs">
+                    GS
+                </div>
+                <span class="font-bold tracking-tight text-white font-mono text-base">gskit<span class="text-emerald-400">.dev</span></span>
+                <span class="text-[11px] font-mono text-neutral-500 border border-neutral-800 px-1.5 py-0.5 rounded">C++20</span>
+            </div>
+            <nav class="hidden md:flex items-center space-x-8 text-xs font-mono text-neutral-400">
+                <a href="#pipeline" class="hover:text-emerald-400 transition">/pipeline</a>
+                <a href="#mcp" class="hover:text-emerald-400 transition">/mcp</a>
+                <a href="#cli" class="hover:text-emerald-400 transition">/cli</a>
+                <a href="https://github.com/Kutsukey/gskit" target="_blank" class="text-white hover:text-emerald-400 transition flex items-center gap-1">
+                    [github]
+                </a>
+            </nav>
+            <div class="flex items-center space-x-3">
+                <a href="mailto:founder@gskit.dev" class="text-xs font-mono px-3 py-1.5 rounded border border-neutral-800 hover:border-neutral-600 bg-neutral-900/80 text-neutral-300 transition">
+                    founder@gskit.dev
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="relative z-10 pt-20 pb-16 px-6 max-w-5xl mx-auto">
+        <!-- Interactive Diagnostics Bar -->
+        <div class="flex flex-wrap items-center gap-3 text-[11px] font-mono mb-8 text-neutral-400">
+            <div class="flex items-center gap-2 px-2.5 py-1 rounded bg-neutral-900/90 border border-neutral-800">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span>STATUS: ENGINE ACTIVE</span>
+            </div>
+            <div class="px-2.5 py-1 rounded bg-neutral-900/90 border border-neutral-800 text-neutral-400 hidden sm:block">
+                INPUT: BINARY .PLY (MEMORY-MAPPED)
+            </div>
+            <div class="px-2.5 py-1 rounded bg-neutral-900/90 border border-neutral-800 text-emerald-400">
+                TARGET: UNREAL ENGINE 5 & UNITY
+            </div>
+        </div>
+
+        <h1 class="text-4xl sm:text-6xl font-extrabold text-white tracking-tight leading-[1.08] mb-6 font-sans">
+            Deterministic 3D Gaussian Splatting <br class="hidden sm:inline"/>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-neutral-100 via-neutral-300 to-emerald-400">
+                Validation & Sanitization Engine
+            </span>
+        </h1>
+
+        <p class="text-base sm:text-lg text-neutral-400 max-w-2xl font-normal leading-relaxed mb-8">
+            A standalone C++20 tool to inspect raw binary <code class="font-mono text-emerald-400 text-sm">.ply</code> streams, detect mathematical singularities (<span class="text-red-400 font-mono">NaN / Inf</span> positions, degenerate needle splats, zero quaternions), and prune corrupt elements before game engine ingest.
+        </p>
+
+        <div class="flex flex-wrap items-center gap-3 font-mono text-xs">
+            <a href="https://github.com/Kutsukey/gskit" target="_blank" class="px-5 py-2.5 rounded bg-emerald-400 hover:bg-emerald-300 text-black font-semibold transition flex items-center gap-2">
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+                Clone Repository
+            </a>
+            <div class="px-4 py-2.5 rounded bg-neutral-900 border border-neutral-800 text-neutral-300">
+                <code>$ gskit validate scene.ply</code>
+            </div>
+        </div>
+    </section>
+
+    <!-- Terminal & Telemetry View -->
+    <section class="relative z-10 max-w-5xl mx-auto px-6 pb-20" id="cli">
+        <div class="rounded-xl border border-neutral-800 bg-[#0d0e12]/90 backdrop-blur-md overflow-hidden shadow-2xl">
+            <div class="px-4 py-2.5 bg-neutral-900/90 border-b border-neutral-800 flex items-center justify-between text-xs font-mono">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-neutral-700"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-neutral-700"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-neutral-700"></span>
+                    <span class="ml-2 text-neutral-400">gskit-cli — validation stream</span>
+                </div>
+                <span class="text-neutral-500">SIMD I/O • 4.8M Splats in 142ms</span>
+            </div>
+            
+            <div class="p-6 font-mono text-xs sm:text-[13px] space-y-2 overflow-x-auto text-neutral-300">
+                <div class="flex items-center gap-2">
+                    <span class="text-emerald-400">$</span>
+                    <span>gskit validate --report-json scene.ply</span>
+                </div>
+                <div class="text-neutral-500">[INFO] Header parsed: format binary_little_endian 1.0 (SH degree: 3)</div>
+                <div class="text-amber-400/90">[WARN] Anisotropy violation: 14,209 needle splats (max/min scale ratio > 1000x)</div>
+                <div class="text-red-400/90">[FAIL] Singular quaternion: 312 degenerate [0, 0, 0, 0] rotation vectors</div>
+                <div class="text-amber-400/90">[WARN] Bandwidth penalty: 82,100 dead splats with sigmoid(opacity) &lt; 1e-4</div>
+                <div class="text-neutral-600">----------------------------------------------------------------------</div>
+                <div class="flex items-center gap-2 pt-1">
+                    <span class="text-emerald-400">$</span>
+                    <span>gskit clean scene.ply -o clean.ply --prune-dead --clamp-scale</span>
+                </div>
+                <div class="text-emerald-400 font-medium">✓ Sanitized: 4,725,593 valid splats written to clean.ply (VRAM reduction: -14.2%)</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pipeline Matrix -->
+    <section class="relative z-10 max-w-5xl mx-auto px-6 py-16 border-t border-neutral-800/80" id="pipeline">
+        <div class="mb-10">
+            <span class="text-xs font-mono text-emerald-400 uppercase tracking-widest">[Core Architecture]</span>
+            <h2 class="text-2xl sm:text-3xl font-bold text-white mt-1">Pre-Ingest Mathematical Matrix</h2>
+        </div>
+
+        <div class="grid sm:grid-cols-3 gap-4 font-mono text-xs">
+            <div class="p-5 rounded-lg bg-neutral-900/50 border border-neutral-800">
+                <div class="text-neutral-500 mb-2">01 / I/O CORE</div>
+                <h3 class="text-sm font-bold text-white mb-2 font-sans">Zero-Dep C++20 Stream</h3>
+                <p class="text-neutral-400 text-xs leading-relaxed">
+                    Direct memory-mapped pointer traversal. Processes multi-gigabyte point clouds without copying vertex buffers into intermediate objects.
+                </p>
+            </div>
+            
+            <div class="p-5 rounded-lg bg-neutral-900/50 border border-neutral-800">
+                <div class="text-neutral-500 mb-2">02 / SANITIZER</div>
+                <h3 class="text-sm font-bold text-white mb-2 font-sans">Singularity Pruning</h3>
+                <p class="text-neutral-400 text-xs leading-relaxed">
+                    Clamps scale explosions (exp(s) &gt; 10⁶), normalizes degenerate quaternions, and validates spherical harmonics degrees (0, 1, 2, 3).
+                </p>
+            </div>
+
+            <div class="p-5 rounded-lg bg-neutral-900/50 border border-neutral-800">
+                <div class="text-neutral-500 mb-2">03 / COMPUTE READY</div>
+                <h3 class="text-sm font-bold text-white mb-2 font-sans">Unreal & Unity Buffer</h3>
+                <p class="text-neutral-400 text-xs leading-relaxed">
+                    Prevents GPU crashes, NaN tile corruptions, and rasterizer overdraw before importing assets into custom Niagara or compute shaders.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- MCP Protocol Section -->
+    <section class="relative z-10 max-w-5xl mx-auto px-6 py-16 border-t border-neutral-800/80" id="mcp">
+        <div class="p-8 rounded-xl bg-neutral-900/60 border border-neutral-800">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+                <div>
+                    <span class="text-xs font-mono text-emerald-400 uppercase tracking-widest">[Automation Interface]</span>
+                    <h2 class="text-2xl font-bold text-white mt-1">Model Context Protocol (MCP) Server</h2>
+                    <p class="text-sm text-neutral-400 mt-2 max-w-xl">
+                        GSKit exposes a native MCP server, enabling local coding agents (Cursor, Claude Code, Windsurf) to programmatically audit and repair 3DGS assets inside automated pipelines.
+                    </p>
+                </div>
+                <div class="font-mono text-xs px-3 py-1.5 rounded bg-neutral-800/80 border border-neutral-700 text-neutral-300 whitespace-nowrap self-start md:self-auto">
+                    $ gskit mcp --stdio
+                </div>
+            </div>
+
+            <div class="grid sm:grid-cols-3 gap-3 font-mono text-xs">
+                <div class="p-4 rounded border border-neutral-800/80 bg-neutral-950/60">
+                    <span class="text-emerald-400 font-bold block mb-1">inspect_scene</span>
+                    <span class="text-neutral-400 text-[11px] leading-relaxed block">Returns JSON telemetry on splat counts, bounding boxes, and corrupted quaternion indices.</span>
+                </div>
+                <div class="p-4 rounded border border-neutral-800/80 bg-neutral-950/60">
+                    <span class="text-emerald-400 font-bold block mb-1">prune_dead_splats</span>
+                    <span class="text-neutral-400 text-[11px] leading-relaxed block">Executes threshold filtering on residual invisible splats and needle geometries.</span>
+                </div>
+                <div class="p-4 rounded border border-neutral-800/80 bg-neutral-950/60">
+                    <span class="text-emerald-400 font-bold block mb-1">export_clean_ply</span>
+                    <span class="text-neutral-400 text-[11px] leading-relaxed block">Writes sanitized binary .ply file and returns exact VRAM bandwidth delta.</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="relative z-10 border-t border-neutral-800/80 py-10 px-6">
+        <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-mono text-neutral-500">
+            <div>
+                <span class="text-neutral-300 font-bold">GSKit</span> — 3D Gaussian Splatting Infrastructure
+            </div>
+            <div>
+                Inquiries: <a href="mailto:founder@gskit.dev" class="text-neutral-400 hover:text-emerald-400 transition">founder@gskit.dev</a>
+            </div>
+            <div>
+                Open Source C++20
+            </div>
+        </div>
+    </footer>
+
+    <!-- Interactive Splat / Point Cloud Engine Script -->
+    <script>
+        (function() {
+            const canvas = document.getElementById('splatCanvas');
+            const ctx = canvas.getContext('2d');
+
+            let width, height;
+            let mouseX = 0, mouseY = 0;
+            let targetRotationX = 0, targetRotationY = 0;
+            let currentRotationX = 0, currentRotationY = 0;
+
+            const SPLAT_COUNT = 240;
+            const splats = [];
+
+            function resize() {
+                width = canvas.width = window.innerWidth;
+                height = canvas.height = window.innerHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
+
+            // Initialize synthetic Gaussian Splats
+            for (let i = 0; i < SPLAT_COUNT; i++) {
+                // Spherical/torus distribution in 3D
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos((Math.random() * 2) - 1);
+                const radius = 220 + Math.random() * 260;
+
+                const isCorrupt = Math.random() < 0.08; // 8% anomalous splats (red/amber)
+
+                splats.push({
+                    x: radius * Math.sin(phi) * Math.cos(theta),
+                    y: radius * Math.sin(phi) * Math.sin(theta) * 0.55,
+                    z: radius * Math.cos(phi),
+                    scaleX: isCorrupt ? (25 + Math.random() * 45) : (8 + Math.random() * 18),
+                    scaleY: isCorrupt ? (2 + Math.random() * 3) : (6 + Math.random() * 14), // Anisotropic needles
+                    angle: Math.random() * Math.PI,
+                    isCorrupt: isCorrupt,
+                    opacity: 0.15 + Math.random() * 0.45,
+                    pulseSpeed: 0.02 + Math.random() * 0.03
+                });
+            }
+
+            window.addEventListener('mousemove', (e) => {
+                mouseX = (e.clientX - width / 2) / width;
+                mouseY = (e.clientY - height / 2) / height;
+                targetRotationY = mouseX * 0.8;
+                targetRotationX = -mouseY * 0.5;
+            });
+
+            let t = 0;
+
+            function render() {
+                t += 0.005;
+                ctx.clearRect(0, 0, width, height);
+
+                currentRotationY += (targetRotationY + t * 0.3 - currentRotationY) * 0.05;
+                currentRotationX += (targetRotationX - currentRotationX) * 0.05;
+
+                const cosY = Math.cos(currentRotationY);
+                const sinY = Math.sin(currentRotationY);
+                const cosX = Math.cos(currentRotationX);
+                const sinX = Math.sin(currentRotationX);
+
+                const fov = 420;
+                const cameraZ = 650;
+
+                // Sort splats back-to-front (depth sort like real splatting rasterizer)
+                const projected = [];
+
+                for (let i = 0; i < splats.length; i++) {
+                    const s = splats[i];
+
+                    // 3D Rotation
+                    const x1 = s.x * cosY - s.z * sinY;
+                    const z1 = s.x * sinY + s.z * cosY;
+
+                    const y2 = s.y * cosX - z1 * sinX;
+                    const z2 = s.y * sinX + z1 * cosX + cameraZ;
+
+                    if (z2 > 10) {
+                        const scale = fov / z2;
+                        const screenX = width / 2 + x1 * scale;
+                        const screenY = height / 2 + y2 * scale;
+
+                        projected.push({
+                            x: screenX,
+                            y: screenY,
+                            z: z2,
+                            scaleX: s.scaleX * scale,
+                            scaleY: s.scaleY * scale,
+                            angle: s.angle + t * 0.2,
+                            isCorrupt: s.isCorrupt,
+                            opacity: s.opacity * (1 - Math.min(1, Math.max(0, (z2 - 300) / 700)))
+                        });
+                    }
+                }
+
+                // Render back-to-front
+                projected.sort((a, b) => b.z - a.z);
+
+                for (let i = 0; i < projected.length; i++) {
+                    const p = projected[i];
+                    ctx.save();
+                    ctx.translate(p.x, p.y);
+                    ctx.rotate(p.angle);
+
+                    // Draw Gaussian Ellipse
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, Math.max(1, p.scaleX), Math.max(1, p.scaleY), 0, 0, Math.PI * 2);
+
+                    if (p.isCorrupt) {
+                        // Anisotropic / Corrupted Splat in red/amber
+                        ctx.fillStyle = `rgba(239, 68, 68, ${p.opacity * 0.7})`;
+                        ctx.fill();
+                        ctx.strokeStyle = `rgba(245, 158, 11, ${p.opacity * 0.9})`;
+                        ctx.lineWidth = 0.8;
+                        ctx.stroke();
+                    } else {
+                        // Healthy Gaussian Splats (Emerald / Teal / Slate)
+                        const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, Math.max(1, p.scaleX));
+                        grad.addColorStop(0, `rgba(52, 211, 153, ${p.opacity * 0.5})`);
+                        grad.addColorStop(0.5, `rgba(16, 185, 129, ${p.opacity * 0.25})`);
+                        grad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+                        ctx.fillStyle = grad;
+                        ctx.fill();
+                    }
+
+                    ctx.restore();
+                }
+
+                requestAnimationFrame(render);
+            }
+
+            render();
+        })();
+    </script>
+</body>
+</html>
